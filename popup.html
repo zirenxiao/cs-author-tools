@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>投稿状态记录</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <h1>CS Author Tools</h1>
+        <p id="summary">加载中...</p>
+      </header>
+
+      <section class="tabs" role="tablist" aria-label="CS Author Tools Tabs">
+        <button class="tab-btn active" type="button" data-tab="trackerTab" role="tab" aria-selected="true">投稿状态记录</button>
+        <button class="tab-btn" type="button" data-tab="scholarTab" role="tab" aria-selected="false">Scholar 统计</button>
+      </section>
+
+      <section id="trackerTab" class="tab-panel active" role="tabpanel">
+        <section class="controls">
+          <label class="toggle-row" for="trackerEnabled">
+            <span>投稿状态记录功能</span>
+            <input id="trackerEnabled" type="checkbox" checked>
+          </label>
+          <button id="exportBtn" type="button">导出 JSON</button>
+          <button id="importBtn" type="button">导入 JSON</button>
+          <button id="clearBtn" type="button" class="danger">清空记录</button>
+          <input id="importFileInput" type="file" accept="application/json,.json" hidden>
+        </section>
+
+        <section id="list" class="list"></section>
+      </section>
+
+      <section id="scholarTab" class="tab-panel" role="tabpanel" aria-hidden="true">
+        <section class="controls">
+          <label class="toggle-row" for="scholarEnabled">
+            <span>Google Scholar 统计功能</span>
+            <input id="scholarEnabled" type="checkbox" checked>
+          </label>
+          <label class="toggle-row" for="scholarCcfEnabled">
+            <span>显示 CCF 统计</span>
+            <input id="scholarCcfEnabled" type="checkbox" checked>
+          </label>
+        </section>
+        <div class="empty">在 Google Scholar 个人主页会自动把统计数据插入 Cited by 区块，并高亮当前作者。若开启 CCF 统计，需要先安装 easyScholar 插件并启用其中的 CCF 显示。</div>
+      </section>
+    </main>
+
+    <template id="itemTemplate">
+      <article class="item">
+        <h2 class="item-title"></h2>
+        <div class="meta"></div>
+        <div class="status"></div>
+        <details>
+          <summary>状态历史</summary>
+          <ul class="history"></ul>
+        </details>
+      </article>
+    </template>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

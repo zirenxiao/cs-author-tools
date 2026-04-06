@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "CS Author Tools",
+  "description": "Author-side tools for ScholarOne, including manuscript status tracking.",
+  "version": "1.0.0",
+  "permissions": ["storage"],
+  "host_permissions": ["https://mc.manuscriptcentral.com/*", "https://scholar.google.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://mc.manuscriptcentral.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://scholar.google.com/citations*"],
+      "js": ["scholar.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "CS Author Tools",
+    "default_popup": "popup.html"
+  }
+}
