@@ -3,9 +3,28 @@
   const PANEL_ID = "csat-scholar-stats";
   const STYLE_ID = "csat-scholar-style";
   const AUTHOR_HIGHLIGHT_CLASS = "csat-current-author-name";
+  const DEFAULT_SETTINGS = {
+    scholarStatsEnabled: true,
+    scholarCcfEnabled: true,
+    scholarSciEnabled: true,
+    scholarIfEnabled: true,
+    ifBucketSize: 5
+  };
+
+  function hasUsableExtensionStorage() {
+    return Boolean(globalThis.chrome?.runtime?.id && globalThis.chrome?.storage?.local?.get);
+  }
 
   function normalizeText(value) {
     return (value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function normalizeIfBucketSize(value) {
+    const size = Number.parseInt(String(value), 10);
+    if (!Number.isFinite(size) || size < 1) {
+      return DEFAULT_SETTINGS.ifBucketSize;
+    }
+    return Math.min(size, 100);
   }
 
   function normalizeName(value) {
@@ -142,15 +161,67 @@
       .filter((text) => /^CCF\s+/i.test(text));
   }
 
+  function collectSciQuartiles(row) {
+    if (!row) {
+      return [];
+    }
+
+    return Array.from(row.querySelectorAll(".easyscholar-ranking"))
+      .map((el) => normalizeText(el.textContent))
+      .filter((text) => /^SCI\s+Q[1-4]$/i.test(String(text || "")));
+  }
+
+  function collectIfScores(row) {
+    if (!row) {
+      return [];
+    }
+
+    return Array.from(row.querySelectorAll(".easyscholar-ranking"))
+      .map((el) => normalizeText(el.textContent))
+      .map((text) => {
+        const match = String(text || "").match(/^IF\s+([0-9]+(?:\.[0-9]+)?)$/i);
+        return match ? Number(match[1]) : null;
+      })
+      .filter((value) => Number.isFinite(value));
+  }
+
+  function getIfBucketLabel(score, bucketSize) {
+    const size = normalizeIfBucketSize(bucketSize);
+    const start = Math.floor(score / size) * size;
+    const end = start + size;
+    return `${start}~${end}`;
+  }
+
   async function getFeatureSettings() {
-    const raw = await chrome.storage.local.get(SETTINGS_KEY);
-    const settings = raw[SETTINGS_KEY] && typeof raw[SETTINGS_KEY] === "object" ? raw[SETTINGS_KEY] : {};
-    return {
-      scholarStatsEnabled:
-        typeof settings.scholarStatsEnabled === "boolean" ? settings.scholarStatsEnabled : true,
-      scholarCcfEnabled:
-        typeof settings.scholarCcfEnabled === "boolean" ? settings.scholarCcfEnabled : true
-    };
+    if (!hasUsableExtensionStorage()) {
+      return { ...DEFAULT_SETTINGS };
+    }
+
+    try {
+      const raw = await globalThis.chrome.storage.local.get(SETTINGS_KEY);
+      const settings = raw && raw[SETTINGS_KEY] && typeof raw[SETTINGS_KEY] === "object" ? raw[SETTINGS_KEY] : {};
+      return {
+        scholarStatsEnabled:
+          typeof settings.scholarStatsEnabled === "boolean"
+            ? settings.scholarStatsEnabled
+            : DEFAULT_SETTINGS.scholarStatsEnabled,
+        scholarCcfEnabled:
+          typeof settings.scholarCcfEnabled === "boolean"
+            ? settings.scholarCcfEnabled
+            : DEFAULT_SETTINGS.scholarCcfEnabled,
+        scholarSciEnabled:
+          typeof settings.scholarSciEnabled === "boolean"
+            ? settings.scholarSciEnabled
+            : DEFAULT_SETTINGS.scholarSciEnabled,
+        scholarIfEnabled:
+          typeof settings.scholarIfEnabled === "boolean"
+            ? settings.scholarIfEnabled
+            : DEFAULT_SETTINGS.scholarIfEnabled,
+        ifBucketSize: normalizeIfBucketSize(settings.ifBucketSize)
+      };
+    } catch {
+      return { ...DEFAULT_SETTINGS };
+    }
   }
 
   function getProfileName() {
@@ -241,6 +312,19 @@
       "CCF B": 0,
       "CCF C": 0
     };
+    const ccfFirstAuthorCounts = {
+      "CCF A": 0,
+      "CCF B": 0,
+      "CCF C": 0
+    };
+    const sciCounts = {
+      "SCI Q1": 0,
+      "SCI Q2": 0,
+      "SCI Q3": 0,
+      "SCI Q4": 0
+    };
+    const ifBucketCounts = new Map();
+    const ifBucketSize = normalizeIfBucketSize(settings.ifBucketSize);
 
     clearHighlights();
 
@@ -248,7 +332,11 @@
       const authorsDiv = row.querySelector("td.gsc_a_t .gs_gray");
       const authorsText = normalizeText(authorsDiv?.textContent || "");
       const matchedAuthor = findMatchedAuthor(authorsText, profileName);
-      const rowCcfRanks = collectCcfRanks(row);
+      const rowCcfRanks = Array.from(new Set(collectCcfRanks(row).map((rank) => rank.toUpperCase())));
+      const rowSciQuartiles = settings.scholarSciEnabled
+        ? Array.from(new Set(collectSciQuartiles(row).map((rank) => rank.toUpperCase())))
+        : [];
+      const rowIfScores = settings.scholarIfEnabled ? collectIfScores(row) : [];
 
       if (settings.scholarCcfEnabled) {
         rowCcfRanks.forEach((rank) => {
@@ -258,11 +346,33 @@
         });
       }
 
+      if (settings.scholarSciEnabled) {
+        rowSciQuartiles.forEach((quartile) => {
+          if (quartile in sciCounts) {
+            sciCounts[quartile] += 1;
+          }
+        });
+      }
+
+      if (settings.scholarIfEnabled) {
+        rowIfScores.forEach((score) => {
+          const bucket = getIfBucketLabel(score, ifBucketSize);
+          ifBucketCounts.set(bucket, (ifBucketCounts.get(bucket) || 0) + 1);
+        });
+      }
+
       if (matchedAuthor) {
         row.classList.add("csat-current-author-row");
         highlightAuthorToken(authorsDiv, matchedAuthor.token);
         if (matchedAuthor.isFirstAuthor) {
           firstAuthorCount += 1;
+          if (settings.scholarCcfEnabled) {
+            rowCcfRanks.forEach((rank) => {
+              if (rank in ccfFirstAuthorCounts) {
+                ccfFirstAuthorCounts[rank] += 1;
+              }
+            });
+          }
         }
       }
     });
@@ -270,15 +380,40 @@
     const panel = ensureStatsPanel(citedBlock);
     const ccfRows = settings.scholarCcfEnabled
       ? `
-      <div class="csat-row"><span class="csat-label">CCF A</span><span class="csat-value">${ccfCounts["CCF A"]}</span></div>
-      <div class="csat-row"><span class="csat-label">CCF B</span><span class="csat-value">${ccfCounts["CCF B"]}</span></div>
-      <div class="csat-row"><span class="csat-label">CCF C</span><span class="csat-value">${ccfCounts["CCF C"]}</span></div>`
+      <div class="csat-row"><span class="csat-label">CCF A (一作)</span><span class="csat-value">${ccfCounts["CCF A"]} (${ccfFirstAuthorCounts["CCF A"]})</span></div>
+      <div class="csat-row"><span class="csat-label">CCF B (一作)</span><span class="csat-value">${ccfCounts["CCF B"]} (${ccfFirstAuthorCounts["CCF B"]})</span></div>
+      <div class="csat-row"><span class="csat-label">CCF C (一作)</span><span class="csat-value">${ccfCounts["CCF C"]} (${ccfFirstAuthorCounts["CCF C"]})</span></div>`
+      : "";
+    const sciRows = settings.scholarSciEnabled
+      ? Object.keys(sciCounts)
+          .map((key) => `<div class="csat-row"><span class="csat-label">${key}</span><span class="csat-value">${sciCounts[key]}</span></div>`)
+          .join("")
+      : "";
+    const ifRows = settings.scholarIfEnabled
+      ? Array.from(ifBucketCounts.entries())
+          .sort((a, b) => Number(a[0].split("~")[0]) - Number(b[0].split("~")[0]))
+          .map(([bucket, count]) => `<div class="csat-row"><span class="csat-label">IF ${bucket}</span><span class="csat-value">${count}</span></div>`)
+          .join("")
       : "";
     panel.innerHTML = `
       <div class="csat-row"><span class="csat-label">Total Publications</span><span class="csat-value">${rows.length}</span></div>
       <div class="csat-row"><span class="csat-label">First-Author Publications</span><span class="csat-value">${firstAuthorCount}</span></div>
       ${ccfRows}
+      ${sciRows}
+      ${ifRows}
     `;
+  }
+
+  async function safeRenderStats() {
+    try {
+      const settings = await getFeatureSettings();
+      if (!settings.scholarStatsEnabled) {
+        return;
+      }
+      renderStats(settings);
+    } catch {
+      // Keep content script resilient to transient DOM/storage/runtime errors.
+    }
   }
 
   function setupObservers() {
@@ -290,8 +425,8 @@
     let timer = null;
     const observer = new MutationObserver(() => {
       clearTimeout(timer);
-      timer = setTimeout(async () => {
-        renderStats(await getFeatureSettings());
+      timer = setTimeout(() => {
+        safeRenderStats();
       }, 200);
     });
 
@@ -300,25 +435,20 @@
     const moreBtn = document.getElementById("gsc_bpf_more");
     if (moreBtn) {
       moreBtn.addEventListener("click", () => {
-        setTimeout(async () => {
-          renderStats(await getFeatureSettings());
+        setTimeout(() => {
+          safeRenderStats();
         }, 800);
       });
     }
   }
 
   async function main() {
-    const settings = await getFeatureSettings();
-    if (!settings.scholarStatsEnabled) {
-      return;
-    }
-
-    renderStats(settings);
-    setTimeout(async () => {
-      renderStats(await getFeatureSettings());
+    await safeRenderStats();
+    setTimeout(() => {
+      safeRenderStats();
     }, 1000);
-    setTimeout(async () => {
-      renderStats(await getFeatureSettings());
+    setTimeout(() => {
+      safeRenderStats();
     }, 2500);
     setupObservers();
   }

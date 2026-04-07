@@ -3,6 +3,12 @@
   "name": "CS Author Tools",
   "description": "Author-side tools for ScholarOne, including manuscript status tracking.",
   "version": "1.0.0",
+  "icons": {
+    "16": "icon.png",
+    "32": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
   "permissions": ["storage"],
   "host_permissions": ["https://mc.manuscriptcentral.com/*", "https://scholar.google.com/*"],
   "content_scripts": [
@@ -19,6 +25,11 @@
   ],
   "action": {
     "default_title": "CS Author Tools",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "32": "icon.png",
+      "48": "icon.png"
+    }
   }
 }

@@ -102,6 +102,31 @@ body {
   height: 16px;
 }
 
+.input-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text);
+  padding: 2px 2px 6px;
+}
+
+.input-row input {
+  width: 72px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--card);
+}
+
+.input-row input:disabled {
+  color: var(--muted);
+  background: #f3f4f6;
+}
+
 .controls button:hover {
   border-color: var(--accent);
 }

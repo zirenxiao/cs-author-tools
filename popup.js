@@ -5,6 +5,9 @@
   const trackerEnabledEl = document.getElementById("trackerEnabled");
   const scholarEnabledEl = document.getElementById("scholarEnabled");
   const scholarCcfEnabledEl = document.getElementById("scholarCcfEnabled");
+  const scholarSciEnabledEl = document.getElementById("scholarSciEnabled");
+  const scholarIfEnabledEl = document.getElementById("scholarIfEnabled");
+  const ifBucketSizeEl = document.getElementById("ifBucketSize");
   const listEl = document.getElementById("list");
   const exportBtn = document.getElementById("exportBtn");
   const importBtn = document.getElementById("importBtn");
@@ -29,6 +32,14 @@
     return value && typeof value === "object" ? value : {};
   }
 
+  function normalizeIfBucketSize(value) {
+    const size = Number.parseInt(String(value), 10);
+    if (!Number.isFinite(size) || size < 1) {
+      return 5;
+    }
+    return Math.min(size, 100);
+  }
+
   async function getStore() {
     const result = await chrome.storage.local.get(STORAGE_KEY);
     return normalizeStore(result[STORAGE_KEY]);
@@ -51,7 +62,12 @@
       scholarStatsEnabled:
         typeof raw.scholarStatsEnabled === "boolean" ? raw.scholarStatsEnabled : true,
       scholarCcfEnabled:
-        typeof raw.scholarCcfEnabled === "boolean" ? raw.scholarCcfEnabled : true
+        typeof raw.scholarCcfEnabled === "boolean" ? raw.scholarCcfEnabled : true,
+      scholarSciEnabled:
+        typeof raw.scholarSciEnabled === "boolean" ? raw.scholarSciEnabled : true,
+      scholarIfEnabled:
+        typeof raw.scholarIfEnabled === "boolean" ? raw.scholarIfEnabled : true,
+      ifBucketSize: normalizeIfBucketSize(raw.ifBucketSize)
     };
   }
 
@@ -286,6 +302,18 @@
       scholarCcfEnabledEl.checked = settings.scholarCcfEnabled;
       scholarCcfEnabledEl.disabled = !settings.scholarStatsEnabled;
     }
+    if (scholarSciEnabledEl) {
+      scholarSciEnabledEl.checked = settings.scholarSciEnabled;
+      scholarSciEnabledEl.disabled = !settings.scholarStatsEnabled;
+    }
+    if (scholarIfEnabledEl) {
+      scholarIfEnabledEl.checked = settings.scholarIfEnabled;
+      scholarIfEnabledEl.disabled = !settings.scholarStatsEnabled;
+    }
+    if (ifBucketSizeEl) {
+      ifBucketSizeEl.value = String(settings.ifBucketSize);
+      ifBucketSizeEl.disabled = !settings.scholarStatsEnabled || !settings.scholarIfEnabled;
+    }
     updateControlsByEnabled(settings.manuscriptTrackerEnabled);
 
     if (settings.manuscriptTrackerEnabled) {
@@ -312,6 +340,28 @@
   if (scholarCcfEnabledEl) {
     scholarCcfEnabledEl.addEventListener("change", async () => {
       await saveSettings({ scholarCcfEnabled: scholarCcfEnabledEl.checked });
+    });
+  }
+
+  if (scholarSciEnabledEl) {
+    scholarSciEnabledEl.addEventListener("change", async () => {
+      await saveSettings({ scholarSciEnabled: scholarSciEnabledEl.checked });
+      await refresh();
+    });
+  }
+
+  if (scholarIfEnabledEl) {
+    scholarIfEnabledEl.addEventListener("change", async () => {
+      await saveSettings({ scholarIfEnabled: scholarIfEnabledEl.checked });
+      await refresh();
+    });
+  }
+
+  if (ifBucketSizeEl) {
+    ifBucketSizeEl.addEventListener("change", async () => {
+      const value = normalizeIfBucketSize(ifBucketSizeEl.value);
+      ifBucketSizeEl.value = String(value);
+      await saveSettings({ ifBucketSize: value });
     });
   }
 

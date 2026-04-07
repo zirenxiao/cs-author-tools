@@ -43,6 +43,18 @@
             <span>显示 CCF 统计</span>
             <input id="scholarCcfEnabled" type="checkbox" checked>
           </label>
+          <label class="toggle-row" for="scholarSciEnabled">
+            <span>显示 SCI 统计</span>
+            <input id="scholarSciEnabled" type="checkbox" checked>
+          </label>
+          <label class="toggle-row" for="scholarIfEnabled">
+            <span>显示 IF 统计</span>
+            <input id="scholarIfEnabled" type="checkbox" checked>
+          </label>
+          <label class="input-row" for="ifBucketSize">
+            <span>IF 区间间隔</span>
+            <input id="ifBucketSize" type="number" min="1" step="1" value="5">
+          </label>
         </section>
         <div class="empty">在 Google Scholar 个人主页会自动把统计数据插入 Cited by 区块，并高亮当前作者。若开启 CCF 统计，需要先安装 easyScholar 插件并启用其中的 CCF 显示。</div>
       </section>
